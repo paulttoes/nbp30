@@ -1,5 +1,6 @@
 library(tidyverse)
 library(ggthemes)
+library(plotly)
 
 nbpData <- read.csv("~/GitHub/npb30/raw_data/NBP database 2023-10-02.csv")
 
@@ -54,7 +55,8 @@ ggplot(nbpDataMutated, aes(x = Year, color = moreThanOneSurveyor)) +
 #let's make a df with annual  data
 nbpAnnualDf <- nbpDataMutated |>
   group_by(Year) |>
-  summarise(allBirds = sum(birdCnt)) 
+  summarise(observations = n(),
+            allBirds = sum(birdCnt)) 
 
 # Total number of birds counted by year
 ggplot(nbpAnnualDf, aes(x=Year)) + 
@@ -65,19 +67,80 @@ labs(
 ) +
   scale_color_colorblind()  
 
-
+# Total numbers of bald eagles by year
 baldEagleDf = nbpDataMutated |>
   filter(Species == "Bald Eagle") |>
   group_by(Year) |>
   summarise(baldEagleTotal = sum(birdCnt))
 
+# let's join the two data frames
 nbpAnnualDf <- left_join(nbpAnnualDf, baldEagleDf, by="Year")
 
-# Total number of birds counted by year
+# let's make a percentage of bald eagles as part of the total bird count
+nbpAnnualDf <- nbpAnnualDf |>
+  mutate(baldEagleRatio = 100 * baldEagleTotal/allBirds)
+  
+
+# Total number of bald eagles counted by year
 ggplot(nbpAnnualDf, aes(x=Year)) + 
-  geom_bar(aes(weight = baldEagleTotal))
-labs(
-  title = "Total Number of Birds",
-  x = "year", y = "count",
-) +
+  geom_bar(aes(weight = baldEagleTotal)) +
+  labs(
+   title = "Total Number of Bald Eagles",
+   x = "year", y = "count",
+  ) +
   scale_color_colorblind()  
+
+# Ratio of bald eagles counted by year as part of total population
+ggplot(nbpAnnualDf, aes(x=Year)) + 
+  geom_bar(aes(weight = baldEagleRatio)) +
+  labs(
+    title = "Total Percentage of Bald Eagles",
+    subtitle = "What percentage of all birds observed are bald eagles",
+    x = "year", y = "count",
+  ) +
+  scale_color_colorblind()  
+
+
+
+# let's look at the interfering factors -- dogs, off leash dogs, and walkers observed
+# how sparse is this data?
+tmpDf <- nbpDataMutated |>
+  drop_na(Dogs) |>
+  group_by(Year) |>
+  summarise(allDogsObs = n())
+
+# let's join the two data frames
+nbpAnnualDf <- left_join(nbpAnnualDf, tmpDf, by="Year")
+
+tmpDf <- nbpDataMutated |>
+  drop_na(Dogs.off.leash) |>
+  group_by(Year) |>
+  summarise(offLeashDogsObs = n())
+
+# let's join the two data frames
+nbpAnnualDf <- left_join(nbpAnnualDf, tmpDf, by="Year")
+
+tmpDf <- nbpDataMutated |>
+  drop_na(Walkers) |>
+  group_by(Year) |>
+  summarise(walkersObs = n())
+
+# let's join the two data frames
+nbpAnnualDf <- left_join(nbpAnnualDf, tmpDf, by="Year")
+
+# replace null values caused by the left join
+nbpAnnualDf <- nbpAnnualDf %>% replace(is.na(.), 0)
+
+
+# let's make a percentage of dog obaas part of the total bird count
+nbpAnnualDf <- nbpAnnualDf |>
+  mutate(obsPercentage = round(100 * allDogsObs/observations))
+
+
+plot_ly(
+  type = "table",
+  header = list(values = c("Year", "dogs Obs", "offleash dogs Obs", "walkers Obs", "Percentage of Observation")),
+  cells = list(values = rbind(nbpAnnualDf$Year, nbpAnnualDf$allDogsObs, nbpAnnualDf$offLeashDogsObs, nbpAnnualDf$walkersObs, 
+                              nbpAnnualDf$obsPercentage))
+)
+
