@@ -11,6 +11,8 @@ nbpData <- read.csv("~/GitHub/npb30/raw_data/NBP database 2023-10-02.csv")
 # I created ratios of both to weight the rows on counts
 # if you want to check the number of surveyor, you can sort the row using |> arrange(desc(surveyorCnt))
 nbpDataMutated <- nbpData |>
+  mutate(location = paste(Loop, Station),
+         .after = Station) |>
   mutate(birdCnt = rowSums(pick(Seen:Fly), na.rm = T),
          .after = "Fly")  |>
   mutate(moreThanOneSurveyor = str_count(surveyors, ";") != 0) |>
@@ -68,13 +70,13 @@ labs(
   scale_color_colorblind()  
 
 # Total numbers of bald eagles by year
-baldEagleDf = nbpDataMutated |>
+tmpDf = nbpDataMutated |>
   filter(Species == "Bald Eagle") |>
   group_by(Year) |>
   summarise(baldEagleTotal = sum(birdCnt))
 
 # let's join the two data frames
-nbpAnnualDf <- left_join(nbpAnnualDf, baldEagleDf, by="Year")
+nbpAnnualDf <- left_join(nbpAnnualDf, tmpDf, by="Year")
 
 # let's make a percentage of bald eagles as part of the total bird count
 nbpAnnualDf <- nbpAnnualDf |>
@@ -143,4 +145,116 @@ plot_ly(
   cells = list(values = rbind(nbpAnnualDf$Year, nbpAnnualDf$allDogsObs, nbpAnnualDf$offLeashDogsObs, nbpAnnualDf$walkersObs, 
                               nbpAnnualDf$obsPercentage))
 )
+
+
+# Parks analysis by year, observation, locations
+nbpParksDf <- nbpDataMutated  |>
+  group_by(Park, Year) |>
+  summarise(surveyDateCnt = n_distinct(Survey.Date),
+            locationCnt = n_distinct(location),
+            speciesCnt = n_distinct(Species),
+            observations = n(),
+            allBirds = sum(birdCnt),
+            avgBirdsPerLocation = allBirds / locationCnt) 
+
+# Parks included by years
+ggplot(nbpParksDf, aes(x = Year, y = Park)) +
+  geom_point(aes(color = Park)) +
+  labs(
+    title = "Active Years by Park"
+  ) +
+  theme(legend.position="none")
+
+
+# how many observations per park by year
+ggplot(nbpParksDf, aes(x = Year, y = allBirds)) +
+  geom_point(aes(color = Park)) +
+  labs(
+    title = "Bird Numbers by Years and Park",
+    y = "number of birds"
+  ) 
+
+ggplot(nbpParksDf, aes(x = Year, y = locationCnt)) +
+  geom_point(aes(color = Park)) +
+  labs(
+   title = "Number of Locations by Park and Year",
+   y = "Distinct Locations Monitored"
+   
+) 
+
+# yup, there are really 100 distinct locations
+tmpDf = nbpDataMutated |>
+  filter(Park == "Discovery Park") |>
+  filter(Year == "2015") |>
+  distinct(location) |>
+  arrange(desc(location))
+
+# average bird numbers per park
+parksOverallDf <- nbpDataMutated  |>
+  group_by(Park) |>
+  summarise(surveyDateCnt = n_distinct(Survey.Date),
+            locationCnt = n_distinct(location),
+            observations = n(),
+            allBirds = sum(birdCnt),
+            nMonths = n_distinct(Month),
+            nYears = n_distinct(Year),
+            avgBirdsPerPark = allBirds / nMonths / nYears / locationCnt,
+            ) 
+
+# sort park by average number of birds
+ggplot(parksOverallDf, aes(y = avgBirdsPerPark, x = reorder(Park, avgBirdsPerPark))) +
+  geom_col() + 
+  coord_flip() +
+  geom_text(aes(label = round(avgBirdsPerPark)), 
+            hjust = -.2) +
+  labs(
+    title = "Average Number of Birds by Park",
+    y = "Number of Birds Counted",
+    x = "Park"
+) 
+
+
+
+
+# how many bird species per park by year
+ggplot(nbpParksDf, aes(x = Year, y = speciesCnt)) +
+  geom_point(aes(color = Park)) +
+  labs(
+    title = "Number of Bird Species by Years and Park",
+    y = "number of species"
+  ) 
+
+# sort park by average number of bird species over time
+ggplot(parksOverallDf, aes(y = speciesCnt, x = reorder(Park, speciesCnt))) +
+  geom_col() + 
+  coord_flip() +
+  geom_text(aes(label = speciesCnt), 
+            hjust = -.2) +
+  labs(
+    title = "Total Number of Bird Species Observed by Park",
+    y = "Number of Birds Species",
+    x = "Park"
+) 
+
+# average number bird species per park location, year and month
+tmpDf <- nbpDataMutated  |>
+  group_by(Park, Year, Month, location) |>
+  summarise(speciesCnt = n_distinct(Species)) 
+
+# now what is the average number of bird species for a given location
+tmpDf <- tmpDf |>
+  group_by(Park) |>
+  summarize(avgSpecies = mean(speciesCnt))
+
+# now plot the average number of bird species for a given location
+ggplot(tmpDf, aes(y = avgSpecies, x = reorder(Park, avgSpecies))) +
+  geom_col() + 
+  coord_flip() +
+  geom_text(aes(label = round(avgSpecies)), 
+            hjust = -.2) +
+  labs(
+    title = "Number of Bird Species Observed in an Average Location",
+    y = "Number of Birds Species",
+    x = "Park"
+  ) 
 
