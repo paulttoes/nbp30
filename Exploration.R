@@ -4,10 +4,7 @@ library(plotly)
 
 nbpData <- read.csv("~/GitHub/npb30/raw_data/NBP database 2023-10-02.csv")
 
-# Based on the explorations, we are going to clean the data in the following ways:
-# 1. We are going to remove the years 1996 and 2000
-nbpCleanData <-  nbpData |>
-  filter(Year != "1996" & Year != "2000") 
+#View(nbpData)
 
 # Add a survey count column based on the Extra.volunteers column plus the number of surveyors separated by a ; plus one extra for the first surveyor
 # Because there are diminishing returns as your add more surveyors, I also created a "bin" field where I cap the max at 5 surveyors
