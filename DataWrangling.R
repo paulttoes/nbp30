@@ -51,11 +51,14 @@ ggplot(nbpCleanData, aes(x = Year, y = Park)) +
   tmp1GraphsDf <- tmp1GraphsDf |>
     mutate(obsPercentage = round(100 * cleanedObservations/originalObservations))
   
-# let make a table of all obersations and the percentages
+# let make a table of all observations and the percentages
   plot_ly(
     type = "table",
-    header = list(values = c("Year", "Original Observation", "Cleaned Observations", "Percentage of Observation")),
-    cells = list(values = rbind(tmp1GraphsDf$Year, tmp1GraphsDf$originalObservations, 
-                                tmp1GraphsDf$cleanedObservations, tmp1GraphsDf$obsPercentage))
+    header = list(values = c("Year", "Cleaned Observations", "Original Observations", 
+                             "Percentage of Original Observations")),
+    cells = list(values = rbind(tmp1GraphsDf$Year, tmp1GraphsDf$cleanedObservations, 
+                                tmp1GraphsDf$originalObservations, tmp1GraphsDf$obsPercentage))
   )
+  
+  
   
